@@ -3,6 +3,11 @@
   // Chart.js modularizes its components, so we need to explicitly register the ones we want to use
   // See: https://www.chartjs.org/docs/latest/getting-started/integration.html#bundlers-webpack-rollup-etc
   import { Chart, registerables } from "chart.js";
+  import { HEART_RATE_ZONES, CHART_TEXTS } from '../constants/heartRateZones';
+  import { mockHeartRateData, mockTimeData } from '../mocks/heartRateData';
+  import { CHART_CONFIG, getChartData, getChartAnnotations } from '../config/chart.config';
+  import './Variability.scss';
+  
   Chart.register(...registerables);
 
   export let hearRateBeat;
@@ -15,90 +20,78 @@
   let heartRateVariability;
   let canvas;
 
-  let mockHeartRateData = [
-    65, 65, 65, 65, 65, 64, 63, 62, 62, 62, 62, 63, 63, 63, 63, 63, 63, 63, 63,
-    64, 64, 64, 65, 65, 65, 65, 65, 65, 65, 66, 70, 72, 72, 73, 76, 81, 83, 83,
-    84, 84, 83, 83, 81, 80, 78, 76, 76, 76, 76, 76, 77, 77, 76, 75, 74, 73, 72,
-    71, 70, 70, 69, 68, 67, 67, 66, 65, 64, 63, 63, 63, 63, 63, 63, 63, 63, 63,
-    63, 62, 62, 62, 62, 62, 62, 62, 62, 62, 62, 62, 62, 62, 63, 63, 64, 66, 68,
-    69, 72, 73, 74, 76, 76, 77, 77, 78, 78, 77, 77, 76, 74, 73, 73, 75, 75, 76,
-    76, 76, 76, 76, 76, 76, 76, 76, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0,
-  ];
-  let mockTimeData = [
-    0, 0.959, 1.979, 2.999, 3.959, 4.979, 6.059, 6.959, 7.979, 8.999, 9.959,
-    10.979, 12.059, 13.019, 14.039, 14.999, 16.08, 16.979, 18.119, 18.959,
-    19.979, 20.999, 21.959, 23.099, 23.999, 24.959, 26.099, 26.999, 27.959,
-    28.98, 30.284, 31.274, 32.264, 33.254, 34.244, 35.234, 36.224, 37.214,
-    38.204, 40.184, 40.68, 41.174, 42.659, 43.154, 44.145, 45.134, 46.124,
-    47.115, 48.104, 49.094, 50.084, 51.074, 52.065, 53.054, 54.54, 55.034,
-    56.024, 57.509, 58.004, 58.994, 59.984, 60.974, 61.964, 63.449, 64.439,
-    65.924, 66.419, 67.41, 68.4, 69.39, 70.379, 71.37, 72.36, 73.35, 74.339,
-    75.33, 76.319, 77.31, 78.3, 79.3, 80.28, 81.269, 82.259, 83.251, 84.24,
-    85.229, 86.221, 87.21, 88.2, 89.19, 90.18, 91.17, 92.16, 93.151, 94.14,
-    95.13, 96.12, 97.11, 98.101, 99.09, 100.08, 101.07, 102.06, 103.05, 104.04,
-    105.03, 106.02, 107.01, 108, 108.99, 109.98, 110.97, 111.96, 113.445,
-    114.436, 116.415, 117.405, 118.395, 119.386, 120.375, 121.365, 122.355,
-    123.345, 124.336, 125.82, 126.315, 127.305, 128.296, 129.285, 130.275,
-    131.265, 132.255, 133.245, 134.235, 135.225, 136.215, 137.205, 138.195,
-    139.68,
-  ];
+  /*
+   * Heart Rate Zone Calculations
+   * References:
+   * 1. Fox, S. M., Naughton, J. P., & Haskell, W. L. (1971). Physical activity and the prevention of coronary heart disease. 
+   *    Annals of Clinical Research, 3(6), 404-432. (Original 220-age formula)
+   * 2. American College of Sports Medicine. (2018). ACSM's Guidelines for Exercise Testing and Prescription (10th ed.).
+   *    Wolters Kluwer. (Zone percentages and intensity classifications)
+   * 3. American Heart Association. (2021). Target Heart Rates Chart.
+   *    https://www.heart.org/en/healthy-living/fitness/fitness-basics/target-heart-rates
+   */
+  const age = 32;
+  const maxHR = 220 - age; // 188 (Fox et al., 1971)
+  const zones = {
+    zone1: { min: 0, max: 0.6 * maxHR, ...HEART_RATE_ZONES.zone1 },
+    zone2: { min: 0.6 * maxHR, max: 0.7 * maxHR, ...HEART_RATE_ZONES.zone2 },
+    zone3: { min: 0.7 * maxHR, max: 0.8 * maxHR, ...HEART_RATE_ZONES.zone3 },
+    zone4: { min: 0.8 * maxHR, max: 0.9 * maxHR, ...HEART_RATE_ZONES.zone4 },
+    zone5: { min: 0.9 * maxHR, max: maxHR, ...HEART_RATE_ZONES.zone5 }
+  };
+
+  function getZoneColor(heartRate) {
+    if (heartRate >= zones.zone5.min) return zones.zone5.borderColor;
+    if (heartRate >= zones.zone4.min) return zones.zone4.borderColor;
+    if (heartRate >= zones.zone3.min) return zones.zone3.borderColor;
+    if (heartRate >= zones.zone2.min) return zones.zone2.borderColor;
+    return zones.zone1.borderColor;
+  }
 
   function updateHeartRateChart() {
     if (!startTime) startTime = Date.now();
-    const timeElapsed = (Date.now() - startTime) / 1000; // Convert to seconds
+    const timeElapsed = (Date.now() - startTime) / 1000;
     timeData.push(timeElapsed);
     heartRateData.push(heartRate);
 
     if (!heartRateVariability && canvas) {
       ctx = canvas.getContext("2d");
+      
+      const chartData = getChartData(timeData, heartRateData, mockTimeData, mockHeartRateData, zones);
+      chartData.datasets[0].label = CHART_TEXTS.heartRateLabel;
+      chartData.datasets[0].borderColor = heartRateData.map(hr => getZoneColor(hr));
+      chartData.datasets[0].backgroundColor = heartRateData.map(hr => {
+        if (hr >= zones.zone5.min) return zones.zone5.color;
+        if (hr >= zones.zone4.min) return zones.zone4.color;
+        if (hr >= zones.zone3.min) return zones.zone3.color;
+        if (hr >= zones.zone2.min) return zones.zone2.color;
+        return zones.zone1.color;
+      });
+
+      const chartOptions = {
+        ...CHART_CONFIG.options,
+        plugins: {
+          ...CHART_CONFIG.options.plugins,
+          annotation: getChartAnnotations(zones)
+        }
+      };
+
       heartRateVariability = new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: timeData || mockTimeData,
-          datasets: [
-            {
-              label: "Heart Rate",
-              data: heartRateData || mockHeartRateData,
-              borderColor: "rgb(75, 192, 192)",
-              tension: 0.1,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            y: {
-              beginAtZero: false,
-              grid: {
-                color: "rgba(255, 255, 255, 0.1)",
-              },
-              ticks: {
-                color: "#fff",
-              },
-            },
-            x: {
-              grid: {
-                color: "rgba(255, 255, 255, 0.1)",
-              },
-              ticks: {
-                color: "#fff",
-              },
-            },
-          },
-          plugins: {
-            legend: {
-              labels: {
-                color: "#fff",
-              },
-            },
-          },
-        },
+        ...CHART_CONFIG,
+        data: chartData,
+        options: chartOptions
       });
     } else if (heartRateVariability) {
       heartRateVariability.data.labels = timeData;
       heartRateVariability.data.datasets[0].data = heartRateData;
+      heartRateVariability.data.datasets[0].borderColor = heartRateData.map(hr => getZoneColor(hr));
+      heartRateVariability.data.datasets[0].backgroundColor = heartRateData.map(hr => {
+        if (hr >= zones.zone5.min) return zones.zone5.color;
+        if (hr >= zones.zone4.min) return zones.zone4.color;
+        if (hr >= zones.zone3.min) return zones.zone3.color;
+        if (hr >= zones.zone2.min) return zones.zone2.color;
+        return zones.zone1.color;
+      });
       heartRateVariability.update();
     }
   }
@@ -110,7 +103,36 @@
 
 <div class="content">
   <div class="header">
-    <h1>Heart Rate Variability</h1>
+    <h1>{CHART_TEXTS.title}</h1>
+    <div class="zone-legend">
+      {#each Object.values(HEART_RATE_ZONES) as zone}
+        <div class="zone-item">
+          <span class="zone-color" style="background-color: {zone.color}; border-color: {zone.borderColor};"></span>
+          <span>Zone {Object.keys(HEART_RATE_ZONES).indexOf(zone.name.toLowerCase().replace(' ', '')) + 1}: {zone.name} ({zone.range})</span>
+        </div>
+      {/each}
+    </div>
     <canvas bind:this={canvas} id="heartRateVariability"></canvas>
   </div>
 </div>
+
+<style>
+  .zone-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 16px 0;
+  }
+  .zone-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .zone-color {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid;
+    border-radius: 4px;
+  }
+</style>
