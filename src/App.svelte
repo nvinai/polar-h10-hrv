@@ -3,6 +3,7 @@
   import StepHome from './steps/Home.svelte';
   import StepSetup from './steps/Setup.svelte';
   import StepRun from './steps/Run.svelte';
+  import StepVariability from './steps/Variability.svelte';
   import { lowBeep, highBeep } from './lib/sound';
 
   Howler.autoUnlock = false;
@@ -53,6 +54,21 @@
     }
   }
 
+  async function startVariability() {
+    heartRate = 0;
+    isTooLow = false;
+    isTooHigh = false;
+    step = 'variability';
+
+    try {
+      await heartRateSensor.characteristicHeartRate.startNotifications();
+      heartRateSensor.characteristicHeartRate.addEventListener('characteristicvaluechanged', beat);
+    } catch (err) {
+      alert(err);
+      step = 'home';
+    }
+  }
+
   async function stop() {
     try {
       await heartRateSensor.characteristicHeartRate.stopNotifications();
@@ -92,11 +108,10 @@
   {#if step === 'home'}
   <StepHome connect={connect} />
   {:else if step === 'setup'}
-  <StepSetup heartRange={heartRange} volume={volume} start={start} />
+  <StepSetup heartRange={heartRange} volume={volume} start={start} startVariability={startVariability} />
   {:else if step === 'run'}
   <StepRun isTooHigh={isTooHigh} isTooLow={isTooLow} hearRateBeat={hearRateBeat} heartRate={heartRate} stop={stop} />
+  {:else if step === 'variability'}
+  <StepVariability  hearRateBeat={hearRateBeat} heartRate={heartRate}  />
   {/if}
-  <div class="footer">
-    <a href="https://github.com/nikashitsa/polar-h10-alert">Source code</a>
-  </div>
 </div>

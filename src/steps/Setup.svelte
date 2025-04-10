@@ -8,6 +8,7 @@
   export let heartRange;
   export let volume;
   export let start;
+  export let startVariability;
 
   onMount(() => {
     const sliderBpm = document.getElementById('slider-bpm');
@@ -65,4 +66,5 @@
   </div>
 
   <button class="button" on:click={start}>Start</button>
+  <button class="button" on:click={startVariability}>Start Variability</button>
 </div>

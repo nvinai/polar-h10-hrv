@@ -1,0 +1,116 @@
+<script>
+  // Import Chart.js and its registerables
+  // Chart.js modularizes its components, so we need to explicitly register the ones we want to use
+  // See: https://www.chartjs.org/docs/latest/getting-started/integration.html#bundlers-webpack-rollup-etc
+  import { Chart, registerables } from "chart.js";
+  Chart.register(...registerables);
+
+  export let hearRateBeat;
+  export let heartRate;
+
+  let ctx;
+  let heartRateData = [];
+  let timeData = [];
+  let startTime;
+  let heartRateVariability;
+  let canvas;
+
+  let mockHeartRateData = [
+    65, 65, 65, 65, 65, 64, 63, 62, 62, 62, 62, 63, 63, 63, 63, 63, 63, 63, 63,
+    64, 64, 64, 65, 65, 65, 65, 65, 65, 65, 66, 70, 72, 72, 73, 76, 81, 83, 83,
+    84, 84, 83, 83, 81, 80, 78, 76, 76, 76, 76, 76, 77, 77, 76, 75, 74, 73, 72,
+    71, 70, 70, 69, 68, 67, 67, 66, 65, 64, 63, 63, 63, 63, 63, 63, 63, 63, 63,
+    63, 62, 62, 62, 62, 62, 62, 62, 62, 62, 62, 62, 62, 62, 63, 63, 64, 66, 68,
+    69, 72, 73, 74, 76, 76, 77, 77, 78, 78, 77, 77, 76, 74, 73, 73, 75, 75, 76,
+    76, 76, 76, 76, 76, 76, 76, 76, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0,
+  ];
+  let mockTimeData = [
+    0, 0.959, 1.979, 2.999, 3.959, 4.979, 6.059, 6.959, 7.979, 8.999, 9.959,
+    10.979, 12.059, 13.019, 14.039, 14.999, 16.08, 16.979, 18.119, 18.959,
+    19.979, 20.999, 21.959, 23.099, 23.999, 24.959, 26.099, 26.999, 27.959,
+    28.98, 30.284, 31.274, 32.264, 33.254, 34.244, 35.234, 36.224, 37.214,
+    38.204, 40.184, 40.68, 41.174, 42.659, 43.154, 44.145, 45.134, 46.124,
+    47.115, 48.104, 49.094, 50.084, 51.074, 52.065, 53.054, 54.54, 55.034,
+    56.024, 57.509, 58.004, 58.994, 59.984, 60.974, 61.964, 63.449, 64.439,
+    65.924, 66.419, 67.41, 68.4, 69.39, 70.379, 71.37, 72.36, 73.35, 74.339,
+    75.33, 76.319, 77.31, 78.3, 79.3, 80.28, 81.269, 82.259, 83.251, 84.24,
+    85.229, 86.221, 87.21, 88.2, 89.19, 90.18, 91.17, 92.16, 93.151, 94.14,
+    95.13, 96.12, 97.11, 98.101, 99.09, 100.08, 101.07, 102.06, 103.05, 104.04,
+    105.03, 106.02, 107.01, 108, 108.99, 109.98, 110.97, 111.96, 113.445,
+    114.436, 116.415, 117.405, 118.395, 119.386, 120.375, 121.365, 122.355,
+    123.345, 124.336, 125.82, 126.315, 127.305, 128.296, 129.285, 130.275,
+    131.265, 132.255, 133.245, 134.235, 135.225, 136.215, 137.205, 138.195,
+    139.68,
+  ];
+
+  function updateHeartRateChart() {
+    if (!startTime) startTime = Date.now();
+    const timeElapsed = (Date.now() - startTime) / 1000; // Convert to seconds
+    timeData.push(timeElapsed);
+    heartRateData.push(heartRate);
+
+    if (!heartRateVariability && canvas) {
+      ctx = canvas.getContext("2d");
+      heartRateVariability = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: timeData || mockTimeData,
+          datasets: [
+            {
+              label: "Heart Rate",
+              data: heartRateData || mockHeartRateData,
+              borderColor: "rgb(75, 192, 192)",
+              tension: 0.1,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: false,
+              grid: {
+                color: "rgba(255, 255, 255, 0.1)",
+              },
+              ticks: {
+                color: "#fff",
+              },
+            },
+            x: {
+              grid: {
+                color: "rgba(255, 255, 255, 0.1)",
+              },
+              ticks: {
+                color: "#fff",
+              },
+            },
+          },
+          plugins: {
+            legend: {
+              labels: {
+                color: "#fff",
+              },
+            },
+          },
+        },
+      });
+    } else if (heartRateVariability) {
+      heartRateVariability.data.labels = timeData;
+      heartRateVariability.data.datasets[0].data = heartRateData;
+      heartRateVariability.update();
+    }
+  }
+
+  $: if (hearRateBeat) {
+    updateHeartRateChart();
+  }
+</script>
+
+<div class="content">
+  <div class="header">
+    <h1>Heart Rate Variability</h1>
+    <canvas bind:this={canvas} id="heartRateVariability"></canvas>
+  </div>
+</div>
